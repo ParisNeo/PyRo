@@ -1,5 +1,4 @@
 use crate::error::PyroError;
-use reqwest::Error as ReqwestError;
 use std::fs::File;
 use std::io::copy;
 use std::path::Path;

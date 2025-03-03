@@ -5,13 +5,9 @@ pub enum Mode {
     Portable(PortableMode),
 }
 
-pub struct SystemMode {
-    base_path: PathBuf,
-}
+pub struct SystemMode;
 
-pub struct PortableMode {
-    project_path: PathBuf,
-}
+pub struct PortableMode;
 
 impl SystemMode {
     pub fn new() -> Self {
