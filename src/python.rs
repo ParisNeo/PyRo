@@ -1,6 +1,7 @@
 use crate::error::PyroError;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
+use scraper::{Html, Selector};
 
 #[derive(Deserialize, Debug)]
 pub struct PythonVersion {
@@ -25,23 +26,27 @@ impl PythonManager {
     }
 
     async fn fetch_python_versions() -> Result<Vec<PythonVersion>, ReqwestError> {
-        // Use the official Python download page or a reliable API
         let url = "https://www.python.org/downloads/";
         let response = reqwest::get(url).await?;
         let body = response.text().await?;
 
-        // Parse the HTML to extract Python versions (this is a simplified example)
-        let versions = vec![
-            PythonVersion {
-                version: "3.12.0".to_string(),
-                url: "https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz".to_string(),
-            },
-            PythonVersion {
-                version: "3.11.0".to_string(),
-                url: "https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tar.xz".to_string(),
-            },
-            // Add more versions as needed
-        ];
+        let document = Html::parse_document(&body);
+        let selector = Selector::parse(".download-list-widget li a").unwrap();
+
+        let mut versions = Vec::new();
+
+        for element in document.select(&selector) {
+            if let Some(version) = element.value().attr("href") {
+                if version.contains("/ftp/python/") {
+                    let version_str = version.split('/').nth(3).unwrap_or_default();
+                    let url = format!("https://www.python.org{}", version);
+                    versions.push(PythonVersion {
+                        version: version_str.to_string(),
+                        url,
+                    });
+                }
+            }
+        }
 
         Ok(versions)
     }
