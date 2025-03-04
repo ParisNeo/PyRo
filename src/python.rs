@@ -44,17 +44,27 @@ impl PythonManager {
     
         let document = Html::parse_document(&body);
     
+        // Fixed fallback list
+        let fallback = vec![PythonVersion {
+            version: "3.11.9".to_string(),
+            url: "https://www.python.org/downloads/release/python-31111/".to_string(),
+        }];
+    
         // Selector for the container that holds the version list
         let container_selector = Selector::parse("div.download-list-widget").unwrap();
-        let container = document.select(&container_selector).next().ok_or_else(|| {
-            PyroError::Custom("Could not find the version container on the page.".to_string())
-        })?;
+        let container = document.select(&container_selector).next();
+        if container.is_none() {
+            return Ok(fallback);
+        }
+        let container = container.unwrap();
     
         // Selector for the nested `ol` tag within the container
         let ol_selector = Selector::parse("ol.list-row-container.menu").unwrap();
-        let ol = container.select(&ol_selector).next().ok_or_else(|| {
-            PyroError::Custom("Could not find the version list within the container.".to_string())
-        })?;
+        let ol = container.select(&ol_selector).next();
+        if ol.is_none() {
+            return Ok(fallback);
+        }
+        let ol = ol.unwrap();
     
         // Selector for the `li` tags within the `ol`
         let li_selector = Selector::parse("li").unwrap();
@@ -70,7 +80,12 @@ impl PythonManager {
             }
         }
     
-        Ok(versions)
+        // Return the scraped versions if any, otherwise return the fallback.
+        if versions.is_empty() {
+            Ok(fallback)
+        } else {
+            Ok(versions)
+        }
     }
     
     async fn download_and_install(version: &str) -> Result<(), PyroError> {
