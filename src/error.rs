@@ -4,6 +4,7 @@ use reqwest::Error as ReqwestError;
 
 #[derive(Debug)]
 pub enum PyroError {
+    Custom(String),
     Reqwest(ReqwestError),
     Io(io::Error),
     Other(String),
@@ -12,6 +13,7 @@ pub enum PyroError {
 impl fmt::Display for PyroError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            PyroError::Custom(err_str) => write!(f, "Reqwest error: {}", err_str),
             PyroError::Reqwest(err) => write!(f, "Reqwest error: {}", err),
             PyroError::Io(err) => write!(f, "IO error: {}", err),
             PyroError::Other(msg) => write!(f, "Error: {}", msg),
@@ -20,6 +22,12 @@ impl fmt::Display for PyroError {
 }
 
 impl std::error::Error for PyroError {}
+
+impl PyroError {
+    pub fn new(message: &str) -> Self {
+        PyroError::Custom(message.to_string())
+    }
+}
 
 impl From<ReqwestError> for PyroError {
     fn from(err: ReqwestError) -> Self {

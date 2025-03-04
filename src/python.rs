@@ -35,19 +35,31 @@ impl PythonManager {
         let response = reqwest::get(url).await?;
         let body = response.text().await?;
 
-        let document = Document::from(body.as_str());
-        let version_elements = document.find(Attr("class", "release-number"));
+        let document = Html::parse_document(&body);
+
+        // Selector for the container that holds the version list
+        let container_selector = Selector::parse("div.download-list-widget").unwrap();
+        let container = document.select(&container_selector).next().ok_or_else(|| {
+            PyroError::Custom("Could not find the version container on the page.".to_string())
+        })?;
+
+        // Selector for the nested `ol` tag within the container
+        let ol_selector = Selector::parse("ol.list-row-container.menu").unwrap();
+        let ol = container.select(&ol_selector).next().ok_or_else(|| {
+            PyroError::Custom("Could not find the version list within the container.".to_string())
+        })?;
+
+        // Selector for the `li` tags within the `ol`
+        let li_selector = Selector::parse("li").unwrap();
+        let version_selector = Selector::parse("span.release-number").unwrap();
 
         let mut versions = Vec::new();
 
-        for element in version_elements {
-            if let Some(href) = element.find(Attr("href", "/downloads/release/")).next() {
-                let version_str = href.text();
-                let url = format!("https://www.python.org{}", href.attr("href").unwrap());
-                versions.push(PythonVersion {
-                    version: version_str,
-                    url,
-                });
+        for li in ol.select(&li_selector) {
+            if let Some(version_span) = li.select(&version_selector).next() {
+                let version = version_span.text().collect::<String>().trim().to_string();
+                let url = format!("https://www.python.org/downloads/release/{}/", version);
+                versions.push(PythonVersion { version, url });
             }
         }
 
