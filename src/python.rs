@@ -2,6 +2,10 @@ use crate::error::PyroError;
 use reqwest::Error as ReqwestError;
 use serde::Deserialize;
 use scraper::{Html, Selector};
+use select::document::Document;
+use select::predicate::Attr;
+use select::predicate::Class;
+use std::error::Error;
 
 #[derive(Deserialize, Debug)]
 pub struct PythonVersion {
@@ -24,29 +28,29 @@ impl PythonManager {
         Self::download_and_install(version).await?;
         Ok(())
     }
-    async fn fetch_python_versions() -> Result<Vec<PythonVersion>, ReqwestError> {
+
+
+    async fn fetch_python_versions() -> Result<Vec<PythonVersion>, PyroError> {
         let url = "https://www.python.org/downloads/";
         let response = reqwest::get(url).await?;
         let body = response.text().await?;
-    
-        let document = Html::parse_document(&body);
-        let selector = Selector::parse("div.download-list-widget li a").unwrap();
-    
+
+        let document = Document::from(body.as_str());
+        let version_elements = document.find(Attr("class", "release-number"));
+
         let mut versions = Vec::new();
-    
-        for element in document.select(&selector) {
-            if let Some(href) = element.value().attr("href") {
-                if href.contains("/ftp/python/") {
-                    let version_str = href.split('/').nth(4).unwrap_or_default();
-                    let url = format!("https://www.python.org{}", href);
-                    versions.push(PythonVersion {
-                        version: version_str.to_string(),
-                        url,
-                    });
-                }
+
+        for element in version_elements {
+            if let Some(href) = element.find(Attr("href", "/downloads/release/")).next() {
+                let version_str = href.text();
+                let url = format!("https://www.python.org{}", href.attr("href").unwrap());
+                versions.push(PythonVersion {
+                    version: version_str,
+                    url,
+                });
             }
         }
-    
+
         Ok(versions)
     }
     
